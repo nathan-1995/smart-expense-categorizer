@@ -23,7 +23,8 @@ public class AppDbContext : DbContext
         // User configuration
         modelBuilder.Entity<User>(entity =>
         {
-            entity.HasIndex(e => e.OAuthId).IsUnique();
+            // Only create unique index for non-null OAuthId values
+            entity.HasIndex(e => e.OAuthId).IsUnique().HasFilter("OAuthId IS NOT NULL");
             entity.HasIndex(e => e.Email).IsUnique();
             
             // Remove default value SQL - we'll handle this in C# code

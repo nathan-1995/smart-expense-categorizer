@@ -186,9 +186,17 @@ builder.Services.AddHttpClient<IHealthCheckService, HealthCheckService>(client =
     client.DefaultRequestHeaders.Add("User-Agent", "SmartExpenseGateway-HealthCheck/1.0");
 });
 
+builder.Services.AddHttpClient<IUserService, UserService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Add("User-Agent", "SmartExpenseGateway-UserService/1.0");
+});
+
 // Register custom services
 builder.Services.AddScoped<IProxyService, ProxyService>();
 builder.Services.AddScoped<IHealthCheckService, HealthCheckService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IPasswordService, PasswordService>();
 
 // Add health checks
 builder.Services.AddHealthChecks();
@@ -263,3 +271,6 @@ app.MapGet("/", () => new
 
 Log.Information("API Gateway starting up on http://localhost:5000");
 app.Run();
+
+// Make Program class public for testing
+public partial class Program { }

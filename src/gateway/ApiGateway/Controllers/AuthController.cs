@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using ApiGateway.Models;
+using ApiGateway.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
@@ -18,11 +19,19 @@ public class AuthController : ControllerBase
 {
     private readonly AuthenticationConfiguration _authConfig;
     private readonly ILogger<AuthController> _logger;
+    private readonly IUserService _userService;
+    private readonly IPasswordService _passwordService;
 
-    public AuthController(IOptions<AuthenticationConfiguration> authConfig, ILogger<AuthController> logger)
+    public AuthController(
+        IOptions<AuthenticationConfiguration> authConfig, 
+        ILogger<AuthController> logger,
+        IUserService userService,
+        IPasswordService passwordService)
     {
         _authConfig = authConfig.Value;
         _logger = logger;
+        _userService = userService;
+        _passwordService = passwordService;
     }
 
     /// <summary>
@@ -177,6 +186,101 @@ public class AuthController : ControllerBase
         {
             _logger.LogError(ex, "Error refreshing token");
             return StatusCode(500, ApiResponse<object>.ErrorResponse("Token refresh error"));
+        }
+    }
+
+    /// <summary>
+    /// Register a new user with email and password
+    /// </summary>
+    [HttpPost("register")]
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    {
+        try
+        {
+            // Validate password strength
+            if (!_passwordService.IsValidPassword(request.Password))
+            {
+                return BadRequest(ApiResponse<object>.ErrorResponse(
+                    "Password must be at least 8 characters long and contain uppercase, lowercase, digit, and special character"));
+            }
+
+            // Check if user already exists
+            var existingUser = await _userService.GetUserByEmailAsync(request.Email);
+            if (existingUser != null)
+            {
+                return BadRequest(ApiResponse<object>.ErrorResponse("User with this email already exists"));
+            }
+
+            // Hash password
+            var (hashedPassword, salt) = _passwordService.HashPassword(request.Password);
+
+            // Create user
+            var createUserRequest = new CreateUserRequest
+            {
+                Email = request.Email,
+                PasswordHash = hashedPassword,
+                PasswordSalt = salt,
+                FirstName = request.FirstName,
+                LastName = request.LastName,
+                IsEmailVerified = false
+            };
+
+            var user = await _userService.CreateUserAsync(createUserRequest);
+            if (user == null)
+            {
+                return StatusCode(500, ApiResponse<object>.ErrorResponse("Failed to create user"));
+            }
+
+            // Generate JWT token
+            var token = GenerateJwtToken(user.Id, user.Email, $"{user.FirstName} {user.LastName}".Trim());
+            
+            var response = ApiResponse<AuthResponse>.SuccessResponse(new AuthResponse
+            {
+                Token = token,
+                User = user,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(_authConfig.Jwt.ExpireMinutes)
+            }, "Registration successful");
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during registration for email {Email}", request.Email);
+            return StatusCode(500, ApiResponse<object>.ErrorResponse("Registration error"));
+        }
+    }
+
+    /// <summary>
+    /// Login with email and password
+    /// </summary>
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    {
+        try
+        {
+            // Validate credentials
+            var user = await _userService.ValidateUserCredentialsAsync(request.Email, request.Password);
+            if (user == null)
+            {
+                return BadRequest(ApiResponse<object>.ErrorResponse("Invalid email or password"));
+            }
+
+            // Generate JWT token
+            var token = GenerateJwtToken(user.Id, user.Email, $"{user.FirstName} {user.LastName}".Trim());
+            
+            var response = ApiResponse<AuthResponse>.SuccessResponse(new AuthResponse
+            {
+                Token = token,
+                User = user,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(_authConfig.Jwt.ExpireMinutes)
+            }, "Login successful");
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during login for email {Email}", request.Email);
+            return StatusCode(500, ApiResponse<object>.ErrorResponse("Login error"));
         }
     }
 
