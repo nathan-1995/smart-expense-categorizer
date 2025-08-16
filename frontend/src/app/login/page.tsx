@@ -2,22 +2,72 @@
 
 import { useState } from 'react';
 
+interface LoginResponse {
+  success: boolean;
+  data?: {
+    token: string;
+    user: {
+      id: string;
+      email: string;
+      firstName?: string;
+      lastName?: string;
+    };
+    expiresAt: string;
+  };
+  message?: string;
+  errors?: string[];
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
+    setSuccess(null);
     
-    // Add your login logic here
-    console.log('Login attempt:', { email, password });
-    
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      console.log('Attempting login with:', { email, password });
+      
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      const data: LoginResponse = await response.json();
+      console.log('Response data:', data);
+
+      if (data.success && data.data) {
+        console.log('Login successful, token:', data.data.token);
+        
+        // Store token in localStorage
+        localStorage.setItem('token', data.data.token);
+        localStorage.setItem('user', JSON.stringify(data.data.user));
+        
+        // Redirect immediately to dashboard
+        window.location.href = '/dashboard';
+      } else {
+        setError(data.message || 'Login failed');
+        console.error('Login failed:', data);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Network error - API Gateway might be down';
+      setError(`Error: ${errorMessage}`);
+      console.error('Login error:', err);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -38,6 +88,20 @@ export default function LoginPage() {
           <h2 className="text-xl font-semibold text-white mb-6 text-center">
             Sign in to your account
           </h2>
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-900/50 border border-red-700 rounded-lg p-4 mb-6">
+              <p className="text-red-200 text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Success Message */}
+          {success && (
+            <div className="bg-green-900/50 border border-green-700 rounded-lg p-4 mb-6">
+              <p className="text-green-200 text-sm">{success}</p>
+            </div>
+          )}
           
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email Field */}
