@@ -1,0 +1,14 @@
+.vscode/
+.history/
+.idea/
+*.sublime-workspace
+*.sublime-project
+*.code-workspace
+*.tmp
+*.log
+Etc/
+services/transaction-service/bin/
+services/transaction-service/obj/
+services/transaction-service/migrations/
+api-gateway/bin
+api-gateway/obj
