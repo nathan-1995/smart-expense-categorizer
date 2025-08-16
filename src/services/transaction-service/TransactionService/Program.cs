@@ -24,8 +24,26 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new() { Title = "Transaction Service API", Version = "v1" });
 });
 
-// Database configuration
+// Database configuration with environment variable support
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+// Override with environment variables if they exist
+var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
+var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "ExpenseTracker";
+var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? "root";
+var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "rootpassword";
+
+// Build connection string from environment variables if available
+if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DB_USER")))
+{
+    connectionString = $"Server={dbHost};Database={dbName};Uid={dbUser};Pwd={dbPassword};";
+    Log.Information("Using environment variable connection string");
+}
+else
+{
+    Log.Information("Using appsettings.json connection string");
+}
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
