@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useToast } from '../../components/ToastProvider';
 
 interface User {
   id: string;
@@ -13,6 +14,7 @@ interface User {
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const { showSuccess } = useToast();
 
   useEffect(() => {
     // Check if user is logged in
@@ -28,20 +30,39 @@ export default function DashboardPage() {
     try {
       const parsedUser = JSON.parse(userData);
       setUser(parsedUser);
+      
+      // Check for welcome message flag
+      const welcomeData = localStorage.getItem('showWelcome');
+      if (welcomeData) {
+        try {
+          const welcome = JSON.parse(welcomeData);
+          // Show welcome message if it's fresh (within 10 seconds)
+          if (welcome.show && Date.now() - welcome.timestamp < 10000) {
+            showSuccess('Login successful!', `Welcome back, ${welcome.userName}!`);
+          }
+          // Clear the flag after use
+          localStorage.removeItem('showWelcome');
+        } catch (err) {
+          console.error('Error parsing welcome data:', err);
+          localStorage.removeItem('showWelcome');
+        }
+      }
     } catch (error) {
       console.error('Error parsing user data:', error);
       // Clear invalid data and redirect to login
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('showWelcome');
       window.location.href = '/login';
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showSuccess]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('showWelcome');
     window.location.href = '/';
   };
 
