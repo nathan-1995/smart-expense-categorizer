@@ -43,6 +43,7 @@ public class User
     public virtual ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
     public virtual ICollection<Budget> Budgets { get; set; } = new List<Budget>();
     public virtual ICollection<FileUpload> Files { get; set; } = new List<FileUpload>();
+    public virtual ICollection<EmailVerificationToken> EmailVerificationTokens { get; set; } = new List<EmailVerificationToken>();
     public virtual UserSettings? Settings { get; set; }
 }
 
@@ -191,6 +192,31 @@ public class UserSettings
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    
+    // Navigation properties
+    [ForeignKey("UserId")]
+    public virtual User User { get; set; } = null!;
+}
+
+public class EmailVerificationToken
+{
+    [Key]
+    public Guid Id { get; set; } = Guid.NewGuid();
+    
+    [Required]
+    public Guid UserId { get; set; }
+    
+    [Required]
+    [StringLength(255)]
+    public string Token { get; set; } = string.Empty;
+    
+    [Required]
+    public DateTime ExpiresAt { get; set; }
+    
+    public bool IsUsed { get; set; } = false;
+    
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UsedAt { get; set; }
     
     // Navigation properties
     [ForeignKey("UserId")]

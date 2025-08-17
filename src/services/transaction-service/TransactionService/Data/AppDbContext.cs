@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<Budget> Budgets { get; set; }
     public DbSet<FileUpload> Files { get; set; }
     public DbSet<UserSettings> UserSettings { get; set; }
+    public DbSet<EmailVerificationToken> EmailVerificationTokens { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -128,6 +129,25 @@ public class AppDbContext : DbContext
             entity.HasOne(d => d.User)
                 .WithOne(p => p.Settings)
                 .HasForeignKey<UserSettings>(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // EmailVerificationToken configuration
+        modelBuilder.Entity<EmailVerificationToken>(entity =>
+        {
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.Token).IsUnique();
+            entity.HasIndex(e => e.ExpiresAt);
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("datetime");
+            
+            entity.Property(e => e.ExpiresAt)
+                .HasColumnType("datetime");
+
+            entity.HasOne(d => d.User)
+                .WithMany(p => p.EmailVerificationTokens)
+                .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

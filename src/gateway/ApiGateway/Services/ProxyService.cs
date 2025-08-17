@@ -83,8 +83,18 @@ public class ProxyService : IProxyService
             !HttpMethods.IsDelete(requestMethod) && 
             !HttpMethods.IsTrace(requestMethod))
         {
-            var streamContent = new StreamContent(context.Request.Body);
-            requestMessage.Content = streamContent;
+            // Enable buffering to allow re-reading the request body
+            context.Request.EnableBuffering();
+            context.Request.Body.Position = 0;
+            
+            var bodyBytes = new byte[context.Request.Body.Length];
+            await context.Request.Body.ReadAsync(bodyBytes, 0, bodyBytes.Length);
+            
+            // Reset position for potential re-use
+            context.Request.Body.Position = 0;
+            
+            var byteContent = new ByteArrayContent(bodyBytes);
+            requestMessage.Content = byteContent;
         }
 
         // Copy headers (excluding some that shouldn't be forwarded)

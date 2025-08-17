@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useToast } from '../../components/ToastProvider';
+import { getApiConfig } from '../../lib/api';
 
 interface User {
   id: string;
@@ -15,7 +16,9 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { showSuccess, showInfo } = useToast();
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const [checkingVerification, setCheckingVerification] = useState(false);
+  const { showSuccess, showInfo, showToast } = useToast();
 
   useEffect(() => {
     // Check if user is logged in
@@ -60,6 +63,77 @@ export default function DashboardPage() {
     }
   }, [showSuccess]);
 
+  // Check verification status from API
+  const checkVerificationStatus = async () => {
+    if (!user || checkingVerification || user.isEmailVerified) return;
+    
+    setCheckingVerification(true);
+    
+    try {
+      const apiConfig = getApiConfig();
+      const response = await fetch(`${apiConfig.baseUrl}/api/auth/verification-status/${user.id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data.isEmailVerified) {
+          // Update user state
+          const updatedUser = { ...user, isEmailVerified: true };
+          setUser(updatedUser);
+          
+          // Update localStorage
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          
+          // Show success message
+          showSuccess('Email verified!', 'Your email has been successfully verified.');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking verification status:', error);
+    } finally {
+      setCheckingVerification(false);
+    }
+  };
+
+  // Poll verification status every 3 seconds if email is not verified
+  useEffect(() => {
+    if (!user || user.isEmailVerified) return;
+    
+    const interval = setInterval(() => {
+      checkVerificationStatus();
+    }, 3000); // Check every 3 seconds
+    
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const handleResendVerification = async () => {
+    if (!user || isResendingVerification) return;
+    
+    setIsResendingVerification(true);
+    
+    try {
+      const apiConfig = getApiConfig();
+      const response = await fetch(`${apiConfig.baseUrl}/api/auth/resend-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: user.email }),
+      });
+      
+      const data = await response.json();
+      showToast(data.message || 'Verification email sent', data.success ? 'success' : 'info');
+    } catch (error) {
+      showToast('Failed to send verification email', 'error');
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
+
   const handleLogout = async () => {
     if (isLoggingOut) return; // Prevent double-click
     
@@ -74,6 +148,7 @@ export default function DashboardPage() {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       localStorage.removeItem('showWelcome');
+      localStorage.removeItem('pendingVerificationEmail');
       
       // Redirect to home page
       window.location.href = '/';
@@ -134,6 +209,40 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {/* Email Verification Banner */}
+      {!user.isEmailVerified && (
+        <div className="bg-yellow-600 border-b border-yellow-500">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between py-3">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-yellow-100 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <span className="text-yellow-100 text-sm font-medium">
+                  Please verify your email address ({user.email}) to secure your account
+                </span>
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleResendVerification}
+                  disabled={isResendingVerification}
+                  className="bg-yellow-500 hover:bg-yellow-400 text-yellow-900 px-3 py-1 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isResendingVerification ? 'Sending...' : 'Resend Email'}
+                </button>
+                <button
+                  onClick={checkVerificationStatus}
+                  disabled={checkingVerification}
+                  className="bg-blue-500 hover:bg-blue-400 text-white px-3 py-1 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {checkingVerification ? 'Checking...' : 'Check Now'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
@@ -166,6 +275,15 @@ export default function DashboardPage() {
               <span className={`ml-2 ${user.isEmailVerified ? 'text-green-400' : 'text-red-400'}`}>
                 {user.isEmailVerified ? 'Yes' : 'No'}
               </span>
+              {!user.isEmailVerified && checkingVerification && (
+                <span className="ml-2 text-blue-400 text-xs">
+                  <svg className="inline w-3 h-3 animate-spin mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  checking...
+                </span>
+              )}
             </div>
           </div>
         </div>

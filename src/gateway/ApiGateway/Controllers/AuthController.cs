@@ -21,17 +21,20 @@ public class AuthController : ControllerBase
     private readonly ILogger<AuthController> _logger;
     private readonly IUserService _userService;
     private readonly IPasswordService _passwordService;
+    private readonly IProxyService _proxyService;
 
     public AuthController(
         IOptions<AuthenticationConfiguration> authConfig, 
         ILogger<AuthController> logger,
         IUserService userService,
-        IPasswordService passwordService)
+        IPasswordService passwordService,
+        IProxyService proxyService)
     {
         _authConfig = authConfig.Value;
         _logger = logger;
         _userService = userService;
         _passwordService = passwordService;
+        _proxyService = proxyService;
     }
 
     /// <summary>
@@ -234,6 +237,34 @@ public class AuthController : ControllerBase
             // Generate JWT token
             var token = GenerateJwtToken(user.Id, user.Email, $"{user.FirstName} {user.LastName}".Trim());
             
+            // Send verification email
+            try
+            {
+                _logger.LogInformation("Attempting to send verification email for new user {UserId}", user.Id);
+                
+                // Create a new HTTP context for the internal call
+                var verificationRequest = new SendVerificationRequest { UserId = Guid.Parse(user.Id) };
+                var json = System.Text.Json.JsonSerializer.Serialize(verificationRequest);
+                
+                using var httpClient = new HttpClient();
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var verificationResponse = await httpClient.PostAsync("http://localhost:5001/api/email-verification/send", content);
+                
+                if (!verificationResponse.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to send verification email for user {UserId}. Status: {StatusCode}", 
+                        user.Id, verificationResponse.StatusCode);
+                }
+                else
+                {
+                    _logger.LogInformation("Verification email sent successfully for user {UserId}", user.Id);
+                }
+            }
+            catch (Exception emailEx)
+            {
+                _logger.LogError(emailEx, "Error sending verification email for user {UserId}", user.Id);
+            }
+            
             var response = ApiResponse<AuthResponse>.SuccessResponse(new AuthResponse
             {
                 Token = token,
@@ -314,6 +345,114 @@ public class AuthController : ControllerBase
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
     }
+
+    /// <summary>
+    /// Send email verification
+    /// </summary>
+    [HttpPost("send-verification")]
+    public async Task<IActionResult> SendVerificationEmail([FromBody] SendVerificationRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Sending verification email for user {UserId}", request.UserId);
+            
+            var response = await _proxyService.ForwardRequestAsync(HttpContext, "transaction", "/api/email-verification/send");
+            var content = await response.Content.ReadAsStringAsync();
+            
+            return new ContentResult
+            {
+                Content = content,
+                ContentType = response.Content.Headers.ContentType?.ToString() ?? "application/json",
+                StatusCode = (int)response.StatusCode
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending verification email");
+            return StatusCode(500, ApiResponse<object>.ErrorResponse("Failed to send verification email"));
+        }
+    }
+
+    /// <summary>
+    /// Verify email token
+    /// </summary>
+    [HttpPost("verify-email")]
+    public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Verifying email token");
+            
+            var response = await _proxyService.ForwardRequestAsync(HttpContext, "transaction", "/api/email-verification/verify");
+            var content = await response.Content.ReadAsStringAsync();
+            
+            return new ContentResult
+            {
+                Content = content,
+                ContentType = response.Content.Headers.ContentType?.ToString() ?? "application/json",
+                StatusCode = (int)response.StatusCode
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying email");
+            return StatusCode(500, ApiResponse<object>.ErrorResponse("Failed to verify email"));
+        }
+    }
+
+    /// <summary>
+    /// Get verification status
+    /// </summary>
+    [HttpGet("verification-status/{userId:guid}")]
+    public async Task<IActionResult> GetVerificationStatus(Guid userId)
+    {
+        try
+        {
+            _logger.LogInformation("Getting verification status for user {UserId}", userId);
+            
+            var response = await _proxyService.ForwardRequestAsync(HttpContext, "transaction", $"/api/email-verification/status/{userId}");
+            var content = await response.Content.ReadAsStringAsync();
+            
+            return new ContentResult
+            {
+                Content = content,
+                ContentType = response.Content.Headers.ContentType?.ToString() ?? "application/json",
+                StatusCode = (int)response.StatusCode
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting verification status");
+            return StatusCode(500, ApiResponse<object>.ErrorResponse("Failed to get verification status"));
+        }
+    }
+
+    /// <summary>
+    /// Resend verification email
+    /// </summary>
+    [HttpPost("resend-verification")]
+    public async Task<IActionResult> ResendVerificationEmail([FromBody] ResendVerificationRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Resending verification email for {Email}", request.Email);
+            
+            var response = await _proxyService.ForwardRequestAsync(HttpContext, "transaction", "/api/email-verification/resend");
+            var content = await response.Content.ReadAsStringAsync();
+            
+            return new ContentResult
+            {
+                Content = content,
+                ContentType = response.Content.Headers.ContentType?.ToString() ?? "application/json",
+                StatusCode = (int)response.StatusCode
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error resending verification email");
+            return StatusCode(500, ApiResponse<object>.ErrorResponse("Failed to resend verification email"));
+        }
+    }
 }
 
 public class TokenRequest
@@ -321,4 +460,19 @@ public class TokenRequest
     public string UserId { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string? Name { get; set; }
+}
+
+public class SendVerificationRequest
+{
+    public Guid UserId { get; set; }
+}
+
+public class VerifyEmailRequest
+{
+    public string Token { get; set; } = string.Empty;
+}
+
+public class ResendVerificationRequest
+{
+    public string Email { get; set; } = string.Empty;
 }

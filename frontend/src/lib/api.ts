@@ -63,6 +63,7 @@ class ApiConfig {
 export const apiConfig = ApiConfig.getInstance();
 
 // Export convenience functions
+export const getApiConfig = () => apiConfig;
 export const getAuthUrl = (endpoint: string) => apiConfig.getAuthUrl(endpoint);
 export const getApiUrl = (endpoint: string) => apiConfig.getApiUrl(endpoint);
 export const getHeaders = (includeAuth = false) => apiConfig.getHeaders(includeAuth);

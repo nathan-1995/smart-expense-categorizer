@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using TransactionService.Data;
+using TransactionService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,6 +58,10 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
+
+// Email Service configuration with HttpClient for MailerSend
+builder.Services.AddHttpClient<IEmailService, EmailService>();
+builder.Services.AddScoped<IEmailVerificationService, EmailVerificationService>();
 
 // Health checks
 builder.Services.AddHealthChecks()

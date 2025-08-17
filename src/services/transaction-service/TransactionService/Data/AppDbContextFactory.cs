@@ -9,9 +9,16 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
     {
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
         
-        // Use a design-time connection string with manual server version
+        // Get connection string from environment variables for design-time operations
+        var server = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
+        var database = Environment.GetEnvironmentVariable("DB_NAME") ?? "ExpenseTracker";
+        var username = Environment.GetEnvironmentVariable("DB_USER") ?? "root";
+        var password = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "rootpassword";
+        
+        var connectionString = $"Server={server};Database={database};Uid={username};Pwd={password};AllowUserVariables=true;UseAffectedRows=false;";
+        
         optionsBuilder.UseMySql(
-            "Server=localhost;Database=ExpenseTracker;Uid=root;Pwd=rootpassword;",
+            connectionString,
             new MySqlServerVersion(new Version(8, 0, 21)));
 
         return new AppDbContext(optionsBuilder.Options);

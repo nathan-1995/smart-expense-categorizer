@@ -167,25 +167,42 @@ export default function RegisterPage() {
         // Store token and user data
         localStorage.setItem('token', data.data.token);
         localStorage.setItem('user', JSON.stringify(data.data.user));
-        
-        // Set flag for welcome message on dashboard
-        const userName = data.data.user.firstName || data.data.user.email.split('@')[0];
-        localStorage.setItem('showWelcome', JSON.stringify({
-          show: true,
-          userName,
-          timestamp: Date.now()
-        }));
+        localStorage.setItem('pendingVerificationEmail', formData.email);
         
         // Set registration success state
         setIsRegistered(true);
         
-        // Show success message
-        showSuccess('Account created successfully!', `Welcome to Smart Expense, ${userName}!`);
-        
-        // Smooth redirect with proper delay to show toast
-        setTimeout(() => {
-          window.location.href = '/dashboard';
-        }, 2000);
+        // Send verification email
+        try {
+          const verificationResponse = await fetch(getAuthUrl('/send-verification'), {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({
+              userId: data.data.user.id,
+            }),
+          });
+          
+          const verificationData = await verificationResponse.json();
+          
+          if (verificationData.success) {
+            showSuccess('Account created successfully!', 'Please check your email to verify your account.');
+            
+            // Redirect to verification sent page
+            setTimeout(() => {
+              window.location.href = '/verify-email/sent';
+            }, 2000);
+          } else {
+            showError('Account created but verification email failed', 'Please log in and request a new verification email.');
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 3000);
+          }
+        } catch (verificationError) {
+          showError('Account created but verification email failed', 'Please log in and request a new verification email.');
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 3000);
+        }
       } else {
         showError('Registration failed', data.message || 'Please check your information and try again.');
       }
