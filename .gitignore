@@ -109,6 +109,9 @@ logs/
 .env
 .env.local
 .env.*.local
+.env.development
+.env.staging
+.env.production
 
 # OS generated files
 .DS_Store
