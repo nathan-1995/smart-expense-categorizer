@@ -12,7 +12,7 @@ class ApiConfig {
 
     // Validate that API URL is set
     if (!process.env.NEXT_PUBLIC_API_URL && this.environment === 'production') {
-      console.warn('⚠️  NEXT_PUBLIC_API_URL not set in production environment');
+      console.warn('NEXT_PUBLIC_API_URL not set in production environment');
     }
   }
 
@@ -51,7 +51,7 @@ class ApiConfig {
   // Development helper
   public logConfig(): void {
     if (this.environment === 'development') {
-      console.log('🔧 API Configuration:', {
+      console.log('API Configuration:', {
         baseUrl: this.baseUrl,
         environment: this.environment,
       });

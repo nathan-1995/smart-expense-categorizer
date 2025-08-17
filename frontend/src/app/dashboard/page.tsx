@@ -14,7 +14,8 @@ interface User {
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const { showSuccess } = useToast();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { showSuccess, showInfo } = useToast();
 
   useEffect(() => {
     // Check if user is logged in
@@ -59,11 +60,24 @@ export default function DashboardPage() {
     }
   }, [showSuccess]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('showWelcome');
-    window.location.href = '/';
+  const handleLogout = async () => {
+    if (isLoggingOut) return; // Prevent double-click
+    
+    setIsLoggingOut(true);
+    
+    // Show logout toast
+    showInfo('Logging out...', 'See you again soon!');
+    
+    // Small delay for smooth UX
+    setTimeout(() => {
+      // Clear user data
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('showWelcome');
+      
+      // Redirect to home page
+      window.location.href = '/';
+    }, 1000);
   };
 
   if (loading) {
@@ -100,9 +114,20 @@ export default function DashboardPage() {
               </span>
               <button
                 onClick={handleLogout}
-                className="bg-white text-black px-3 py-1 rounded text-sm hover:bg-gray-100 transition-colors"
+                disabled={isLoggingOut}
+                className="bg-white text-black px-3 py-2 rounded text-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:bg-white"
               >
-                Logout
+                <div className="flex items-center justify-center">
+                  {isLoggingOut && (
+                    <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  )}
+                  <span className={`transition-all duration-200 ${isLoggingOut ? 'opacity-75' : ''}`}>
+                    {isLoggingOut ? 'Logging out...' : 'Logout'}
+                  </span>
+                </div>
               </button>
             </div>
           </div>
