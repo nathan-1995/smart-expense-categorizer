@@ -170,6 +170,36 @@ public class UsersController : ControllerBase
             return StatusCode(500, ApiResponse<object>.ErrorResponse("Error retrieving credentials"));
         }
     }
+
+    /// <summary>
+    /// Update user's last seen timestamp
+    /// </summary>
+    [HttpPut("{userId}/last-seen")]
+    public async Task<IActionResult> UpdateLastSeen(Guid userId)
+    {
+        try
+        {
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+            {
+                return NotFound(ApiResponse<object>.ErrorResponse("User not found"));
+            }
+
+            user.LastSeenAt = DateTime.UtcNow;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(ApiResponse<object>.SuccessResponse(new { message = "Last seen updated successfully" }, "Last seen updated successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating last seen for user {UserId}", userId);
+            return StatusCode(500, ApiResponse<object>.ErrorResponse("Error updating last seen"));
+        }
+    }
 }
 
 // DTOs

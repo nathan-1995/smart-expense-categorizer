@@ -290,11 +290,18 @@ public class AuthController : ControllerBase
         try
         {
             // Validate credentials
+            _logger.LogInformation("Validating credentials for email {Email}", request.Email);
             var user = await _userService.ValidateUserCredentialsAsync(request.Email, request.Password);
             if (user == null)
             {
+                _logger.LogWarning("Invalid credentials for email {Email}", request.Email);
                 return BadRequest(ApiResponse<object>.ErrorResponse("Invalid email or password"));
             }
+
+            _logger.LogInformation("User {UserId} authenticated successfully, updating last seen", user.Id);
+            // Update last seen timestamp
+            var lastSeenUpdated = await _userService.UpdateLastSeenAsync(user.Id);
+            _logger.LogInformation("Last seen update for user {UserId}: {Success}", user.Id, lastSeenUpdated);
 
             // Generate JWT token
             var token = GenerateJwtToken(user.Id, user.Email, $"{user.FirstName} {user.LastName}".Trim(), user.Role);

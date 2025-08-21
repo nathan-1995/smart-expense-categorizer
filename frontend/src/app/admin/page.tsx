@@ -35,6 +35,10 @@ export default function AdminPage() {
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const { showSuccess, showError, showToast } = useToast();
 
   useEffect(() => {
@@ -43,7 +47,8 @@ export default function AdminPage() {
     const userData = localStorage.getItem('user');
 
     if (!token || !userData) {
-      window.location.href = '/login';
+      setShowAdminLogin(true);
+      setLoading(false);
       return;
     }
 
@@ -51,15 +56,26 @@ export default function AdminPage() {
       const user = JSON.parse(userData);
       if (user.role !== 'Admin') {
         showError('Access denied', 'Admin privileges required');
-        window.location.href = '/dashboard';
+        setShowAdminLogin(true);
+        setLoading(false);
         return;
       }
       setCurrentUser(user);
       loadData();
     } catch (error) {
       console.error('Error parsing user data:', error);
-      window.location.href = '/login';
+      setShowAdminLogin(true);
+      setLoading(false);
     }
+  }, []);
+
+  // Update system time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, []);
 
   const loadData = async () => {
@@ -152,6 +168,56 @@ export default function AdminPage() {
     }
   };
 
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginLoading) return;
+
+    setLoginLoading(true);
+
+    try {
+      const apiConfig = getApiConfig();
+      const response = await fetch(`${apiConfig.baseUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: loginForm.email,
+          password: loginForm.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        if (data.data.user.role !== 'Admin') {
+          showError('Access denied', 'Only administrators can access this page');
+          setLoginLoading(false);
+          return;
+        }
+
+        // Store auth data
+        localStorage.setItem('token', data.data.token);
+        localStorage.setItem('user', JSON.stringify(data.data.user));
+
+        // Set current user and load admin data
+        setCurrentUser(data.data.user);
+        setShowAdminLogin(false);
+        setLoading(true);
+        await loadData();
+        
+        showSuccess('Welcome back', `Hello ${data.data.user.firstName || 'Admin'}`);
+      } else {
+        showError('Login failed', data.message || 'Invalid credentials');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      showError('Login failed', 'Unable to connect to server');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     if (isLoggingOut) return;
     
@@ -162,7 +228,9 @@ export default function AdminPage() {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       localStorage.removeItem('showWelcome');
-      window.location.href = '/';
+      setCurrentUser(null);
+      setShowAdminLogin(true);
+      setIsLoggingOut(false);
     }, 1000);
   };
 
@@ -179,17 +247,117 @@ export default function AdminPage() {
   const formatLastSeen = (lastSeenAt?: string) => {
     if (!lastSeenAt) return 'Never';
     
-    const lastSeen = new Date(lastSeenAt);
+    // Parse the UTC timestamp and create a proper Date object
+    const lastSeen = new Date(lastSeenAt + (lastSeenAt.endsWith('Z') ? '' : 'Z'));
     const now = new Date();
-    const diffMs = now.getTime() - lastSeen.getTime();
+    
+    // Calculate difference based on local timezone dates
+    const lastSeenLocalDate = new Date(lastSeen.getFullYear(), lastSeen.getMonth(), lastSeen.getDate());
+    const nowLocalDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffMs = nowLocalDate.getTime() - lastSeenLocalDate.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     
-    if (diffDays === 0) return 'Today';
+    if (diffDays === 0) {
+      // Format time for today in local timezone
+      const timeString = lastSeen.toLocaleTimeString([], {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      return `Today (${timeString})`;
+    }
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
     if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
     return `${Math.floor(diffDays / 30)} months ago`;
   };
+
+  const formatSystemTime = (date: Date) => {
+    return date.toLocaleString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short'
+    });
+  };
+
+  // Show admin login form if not authenticated
+  if (showAdminLogin) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="max-w-md w-full mx-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8">
+            <div className="text-center mb-8">
+              <h1 className="text-2xl font-bold text-white mb-2">Admin Portal</h1>
+              <p className="text-gray-400">Sign in to access the admin dashboard</p>
+            </div>
+
+            <form onSubmit={handleAdminLogin} className="space-y-6">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  value={loginForm.email}
+                  onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="admin@example.com"
+                  disabled={loginLoading}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter your password"
+                  disabled={loginLoading}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-black transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                {loginLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Signing in...
+                  </>
+                ) : (
+                  'Sign in to Admin Portal'
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-gray-400">
+                Need user access? <a href="/login" className="text-blue-400 hover:text-blue-300">Sign in here</a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -211,6 +379,9 @@ export default function AdminPage() {
             </div>
 
             <div className="flex items-center space-x-4">
+              <div className="text-xs text-gray-400 font-mono bg-zinc-800 px-2 py-1 rounded">
+                System: {formatSystemTime(currentTime)}
+              </div>
               <Link 
                 href="/dashboard"
                 className="text-gray-300 hover:text-white transition-colors"

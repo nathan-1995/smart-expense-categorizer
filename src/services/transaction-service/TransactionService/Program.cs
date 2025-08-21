@@ -63,6 +63,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddHttpClient<IEmailService, EmailService>();
 builder.Services.AddScoped<IEmailVerificationService, EmailVerificationService>();
 
+// Seed Data Service
+builder.Services.AddScoped<SeedDataService>();
+
 // Health checks
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();
@@ -135,6 +138,10 @@ if (app.Environment.IsDevelopment())
         // Check if tables exist
         var tablesExist = await dbContext.Database.ExecuteSqlRawAsync("SHOW TABLES LIKE 'Users'");
         Log.Information("Users table check result: {TablesExist}", tablesExist);
+        
+        // Seed initial data
+        var seedService = scope.ServiceProvider.GetRequiredService<SeedDataService>();
+        await seedService.SeedUsersAsync();
     }
     catch (Exception ex)
     {

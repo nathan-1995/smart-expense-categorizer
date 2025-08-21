@@ -159,6 +159,32 @@ public class UserService : IUserService
             return null;
         }
     }
+
+    public async Task<bool> UpdateLastSeenAsync(string userId)
+    {
+        try
+        {
+            var url = $"{_transactionServiceUrl}/api/users/{userId}/last-seen";
+            _logger.LogInformation("Updating last seen for user {UserId} at URL: {Url}", userId, url);
+            
+            var response = await _httpClient.PutAsync(url, null);
+            _logger.LogInformation("Last seen update response for user {UserId}: {StatusCode}", userId, response.StatusCode);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("Failed to update last seen for user {UserId}. Status: {Status}, Content: {Content}", 
+                    userId, response.StatusCode, errorContent);
+            }
+            
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating last seen for user {UserId}", userId);
+            return false;
+        }
+    }
 }
 
 public class UserCredentials

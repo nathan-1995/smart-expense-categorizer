@@ -15,7 +15,7 @@ public class AdminAuthorizationMiddleware
     {
         _next = next;
         _logger = logger;
-        _jwtSecret = configuration["Authentication:JwtSecret"] ?? "YourDefaultSecretKey";
+        _jwtSecret = configuration["Authentication:Jwt:SecretKey"] ?? "YourDefaultSecretKey";
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -46,7 +46,10 @@ public class AdminAuthorizationMiddleware
             }
 
             // Check if user has admin role
-            var roleClaim = principal.FindFirst("role")?.Value;
+            var roleClaim = principal.FindFirst("role")?.Value ?? 
+                           principal.FindFirst(ClaimTypes.Role)?.Value ?? 
+                           principal.FindFirst("http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
+            
             if (roleClaim != "Admin")
             {
                 await WriteForbiddenResponse(context, "Admin access required");
@@ -78,9 +81,9 @@ public class AdminAuthorizationMiddleware
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(key),
                 ValidateIssuer = true,
-                ValidIssuer = "SmartExpenseCategoryGateway",
+                ValidIssuer = "SmartExpenseCategorizerGateway",
                 ValidateAudience = true,
-                ValidAudience = "SmartExpenseCategorApi",
+                ValidAudience = "SmartExpenseCategorizerApi",
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.Zero
             };

@@ -11,7 +11,7 @@ using TransactionService.Data;
 namespace TransactionService.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250817171153_AddAdminRoleAndLastSeen")]
+    [Migration("20250821153115_AddAdminRoleAndLastSeen")]
     partial class AddAdminRoleAndLastSeen
     {
         /// <inheritdoc />

@@ -23,4 +23,9 @@ public interface IUserService
     /// Validates user credentials for password login
     /// </summary>
     Task<UserInfo?> ValidateUserCredentialsAsync(string email, string password);
+    
+    /// <summary>
+    /// Updates the last seen timestamp for a user
+    /// </summary>
+    Task<bool> UpdateLastSeenAsync(string userId);
 }

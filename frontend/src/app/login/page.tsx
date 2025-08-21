@@ -168,11 +168,17 @@ export default function LoginPage() {
           </button>
 
           {/* Footer Links */}
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-2">
             <p className="text-sm text-gray-500">
               Don't have an account?{' '}
-              <a href="#" className="text-white hover:underline">
+              <a href="/register" className="text-white hover:underline">
                 Sign up
+              </a>
+            </p>
+            <p className="text-sm text-gray-500">
+              Administrator?{' '}
+              <a href="/admin" className="text-red-400 hover:text-red-300 transition-colors">
+                Admin Portal
               </a>
             </p>
           </div>
