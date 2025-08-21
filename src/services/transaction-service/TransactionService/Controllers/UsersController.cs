@@ -57,7 +57,8 @@ public class UsersController : ControllerBase
                 Email = user.Email,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                IsEmailVerified = user.IsEmailVerified
+                IsEmailVerified = user.IsEmailVerified,
+                Role = user.Role.ToString()
             };
 
             return Ok(ApiResponse<UserInfo>.SuccessResponse(userInfo, "User created successfully"));
@@ -91,7 +92,8 @@ public class UsersController : ControllerBase
                 Email = user.Email,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                IsEmailVerified = user.IsEmailVerified
+                IsEmailVerified = user.IsEmailVerified,
+                Role = user.Role.ToString()
             };
 
             return Ok(ApiResponse<UserInfo>.SuccessResponse(userInfo, "User found"));
@@ -125,7 +127,8 @@ public class UsersController : ControllerBase
                 Email = user.Email,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                IsEmailVerified = user.IsEmailVerified
+                IsEmailVerified = user.IsEmailVerified,
+                Role = user.Role.ToString()
             };
 
             return Ok(ApiResponse<UserInfo>.SuccessResponse(userInfo, "User found"));
@@ -189,6 +192,7 @@ public class UserInfo
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public bool IsEmailVerified { get; set; }
+    public string Role { get; set; } = "User";
 }
 
 public class UserCredentials

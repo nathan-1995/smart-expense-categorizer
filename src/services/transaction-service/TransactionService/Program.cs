@@ -109,8 +109,23 @@ if (app.Environment.IsDevelopment())
         if (pendingMigrations.Any())
         {
             Log.Information("Applying migrations...");
-            await dbContext.Database.MigrateAsync();
-            Log.Information("Database migration completed successfully");
+            try
+            {
+                await dbContext.Database.MigrateAsync();
+                Log.Information("Database migration completed successfully");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Database migration failed");
+                if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+                {
+                    Log.Warning("Continuing in development mode despite migration failure");
+                }
+                else
+                {
+                    throw;
+                }
+            }
         }
         else
         {

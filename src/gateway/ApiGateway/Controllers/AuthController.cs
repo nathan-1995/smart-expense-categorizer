@@ -235,7 +235,7 @@ public class AuthController : ControllerBase
             }
 
             // Generate JWT token
-            var token = GenerateJwtToken(user.Id, user.Email, $"{user.FirstName} {user.LastName}".Trim());
+            var token = GenerateJwtToken(user.Id, user.Email, $"{user.FirstName} {user.LastName}".Trim(), user.Role);
             
             // Send verification email
             try
@@ -297,7 +297,7 @@ public class AuthController : ControllerBase
             }
 
             // Generate JWT token
-            var token = GenerateJwtToken(user.Id, user.Email, $"{user.FirstName} {user.LastName}".Trim());
+            var token = GenerateJwtToken(user.Id, user.Email, $"{user.FirstName} {user.LastName}".Trim(), user.Role);
             
             var response = ApiResponse<AuthResponse>.SuccessResponse(new AuthResponse
             {
@@ -315,7 +315,7 @@ public class AuthController : ControllerBase
         }
     }
 
-    private string GenerateJwtToken(string userId, string email, string? name = null)
+    private string GenerateJwtToken(string userId, string email, string? name = null, string role = "User")
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.UTF8.GetBytes(_authConfig.Jwt.SecretKey);
@@ -324,6 +324,7 @@ public class AuthController : ControllerBase
         {
             new(ClaimTypes.NameIdentifier, userId),
             new(ClaimTypes.Email, email),
+            new("role", role), // Use custom role claim for easier access
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
         };

@@ -243,6 +243,9 @@ if (rateLimitConfig?.EnableRateLimiting == true)
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Add Admin Authorization Middleware
+app.UseMiddleware<AdminAuthorizationMiddleware>();
+
 // Map controllers
 app.MapControllers();
 

@@ -60,8 +60,12 @@ export default function LoginPage() {
           timestamp: Date.now()
         }));
         
-        // Immediate redirect (Netflix/Google style)
-        window.location.href = '/dashboard';
+        // Redirect based on user role
+        if (data.data.user.role === 'Admin') {
+          window.location.href = '/admin';
+        } else {
+          window.location.href = '/dashboard';
+        }
       } else {
         showError('Login failed', data.message || 'Please check your credentials and try again.');
         console.error('Login failed:', data);

@@ -44,6 +44,7 @@ public class UserInfo
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public bool IsEmailVerified { get; set; }
+    public string Role { get; set; } = "User";
 }
 
 public class CreateUserRequest

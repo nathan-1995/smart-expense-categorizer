@@ -35,6 +35,10 @@ public class User
     
     public bool IsEmailVerified { get; set; } = false;
     
+    public UserRole Role { get; set; } = UserRole.User;
+    
+    public DateTime? LastSeenAt { get; set; }
+    
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     
@@ -237,4 +241,10 @@ public enum ProcessingStatus
     Processing,
     Completed,
     Failed
+}
+
+public enum UserRole
+{
+    User,
+    Admin
 }
