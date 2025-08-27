@@ -1,0 +1,79 @@
+name: Staging CI/CD
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch: # Allow manual trigger
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '20.x'
+
+jobs:
+  # =======================
+  # BUILD AND TEST
+  # =======================
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: ExpenseTracker_Test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      # Backend Build and Test
+      - name: Restore .NET dependencies
+        run: dotnet restore SmartExpenseCategorizer.sln
+
+      - name: Build .NET solution
+        run: dotnet build SmartExpenseCategorizer.sln --no-restore --configuration Release
+
+      - name: Run Backend Tests
+        env:
+          ConnectionStrings__DefaultConnection: "Server=localhost;Database=ExpenseTracker_Test;Uid=root;Pwd=rootpassword;"
+        run: |
+          dotnet test src/gateway/ApiGateway.Tests/ --no-build --configuration Release --logger "console;verbosity=normal"
+          dotnet test src/services/transaction-service/TransactionService.Tests/ --no-build --configuration Release --logger "console;verbosity=normal"
+
+      # Frontend Build and Test
+      - name: Install Frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Frontend Type Check
+        run: |
+          cd frontend
+          npx tsc --noEmit
+
