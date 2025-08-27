@@ -39,6 +39,7 @@ export default function AdminPage() {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [lastUpdated, setLastUpdated] = useState(new Date());
   const { showSuccess, showError, showToast } = useToast();
 
   useEffect(() => {
@@ -77,6 +78,25 @@ export default function AdminPage() {
 
     return () => clearInterval(timer);
   }, []);
+
+  // Real-time data polling when admin is active
+  useEffect(() => {
+    if (!currentUser || showAdminLogin) return;
+
+    const pollInterval = setInterval(async () => {
+      // Only poll if tab is active (performance optimization)
+      if (!document.hidden) {
+        try {
+          await Promise.all([loadUsers(), loadStats()]);
+          setLastUpdated(new Date());
+        } catch (error) {
+          console.error('Error during polling update:', error);
+        }
+      }
+    }, 60000); // Poll every 30 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [currentUser, showAdminLogin]);
 
   const loadData = async () => {
     try {
@@ -445,9 +465,15 @@ export default function AdminPage() {
 
         {/* Users Table */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg">
-          <div className="px-6 py-4 border-b border-zinc-800">
-            <h2 className="text-lg font-semibold text-white">User Management</h2>
-            <p className="text-sm text-gray-400">Manage all registered users</p>
+          <div className="px-6 py-4 border-b border-zinc-800 flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-semibold text-white">User Management</h2>
+              <p className="text-sm text-gray-400">Manage all registered users</p>
+            </div>
+            <div className="text-xs text-gray-500">
+              <div>Last updated: {lastUpdated.toLocaleTimeString()}</div>
+              <div className="text-green-400 mt-1">Auto-refresh: 60s</div>
+            </div>
           </div>
           
           <div className="overflow-x-auto">
